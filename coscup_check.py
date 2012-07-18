@@ -19,9 +19,10 @@ if __name__ == '__main__':
         res = soup.findAll('li', {'class': 'status'})
         m = re.search('尚餘(\d+)名額', str(res[0]))
         left = int(m.group(1))
+        message = "Coscup 2012 Registration: %d seat(s) left!" % left
+        print message
         if left > 0:
-            message = "Coscup 2012 Registration: %d seats left!" % left
             call('notify-send "%s"' % message, shell = True)
     except:
-        pass
+        call('notify-send "Error checking available seats!"', shell = True)
 
