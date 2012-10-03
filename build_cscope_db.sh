@@ -40,6 +40,9 @@ find "./drivers/acpi/"  \
      "./drivers/misc/"  \
      "./drivers/power/" \
      "./drivers/usb/"   \
+     "./drivers/tty/"   \
+     "./drivers/rtc/"   \
+     "./drivers/cpufreq/"   \
      -name "*.[chxsS]" -print >> cscope.files
 
 file_count=`wc -l cscope.files | cut -d' ' -f1`
