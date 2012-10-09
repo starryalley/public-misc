@@ -26,7 +26,7 @@ class XplovaUploader:
     auth_url = 'http://tour.xplova.com/userAccount/login.php'
     upload_url = 'http://tour.xplova.com/inc/uploadActivity.php'
 
-    def send_file(filename):
+    def send_file(self, filename):
         values = {'upload_activity': open(filename) }
         data, headers = multipart_encode(values)
         headers['User-Agent'] = 'Mozilla/4.0 (compatible; MSIE 5.5; Windows NT)'
@@ -41,10 +41,10 @@ class XplovaUploader:
         window.top.window.retUploadActivityComplete(retParse);
     </script>
         """
-        print ret
+        print "Upload result:", ret
 
 
-    def authenticate(user, passwd):
+    def authenticate(self, user, passwd):
         login_data = urllib.urlencode( [('user',user),('pwd',passwd)] )
 
         cj = cookielib.CookieJar()
@@ -52,7 +52,6 @@ class XplovaUploader:
         opener.add_handler(urllib2.HTTPCookieProcessor(cj))
         req = urllib2.Request(XplovaUploader.auth_url, login_data)
         login_ret = urllib2.urlopen(req).read()
-        print login_ret
         login_ret = json.loads(login_ret)
         if login_ret['ret'] == 'RET_OK':
             print "Login successful! UserId: %s, UserName: %s" % \
