@@ -8,6 +8,10 @@
 
 echo "Clean old database..."
 rm -f cscope.*
+rm -f tags
+
+echo "ctags first..."
+ctags -R *
 
 echo "Listing kernel files..."
 LNX=$(pwd)

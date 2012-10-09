@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if [ $# -ne 1 ]; then
+if [ $# -ne 1 ] && [ $# -ne 2 ]; then
     echo "Usage: `basename $0` [command]"
     exit 65 #BAD_ARGS
 fi
@@ -15,7 +15,11 @@ if [ $1 = "help" ]; then
 fi
 
 if [ $1 = "start" ]; then
-    adb shell "echo function >/d/tracing/current_tracer"
+    if [ $# -eq 2 ]; then
+        adb shell "echo $2 >/d/tracing/current_tracer"
+    else
+        adb shell "echo nop >/d/tracing/current_tracer"
+    fi
     adb shell "echo 1 >/d/tracing/tracing_on"
 elif [ $1 = "stop" ]; then
     adb shell "echo 0 >/d/tracing/tracing_on"
