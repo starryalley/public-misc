@@ -1,8 +1,15 @@
 """
-Auto uploader
+
+This is a tool for uploading Xplova's proprietary XZR activity format 
+(ex. from Xplova E5 cycling computer) to their website directly, so it
+saves the time to use browser. 
+
+It can also do the export (as GPX format), so it is somehow acting like 
+a XZR->GPX converter. (of course it needs internet connection) 
+
 
 Requirement:
-    apt-get install python-poster python-requests
+    apt-get install python-poster
 
 Author:
     Mark Kuo (starryalley@gmail.com)
@@ -20,7 +27,6 @@ from poster.encode import multipart_encode
 from poster.streaminghttp import register_openers
 
 USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.4 (KHTML, like Gecko) Chrome/22.0.1229.79 Safari/537.4"
-
 
 class LoginException(Exception): pass
 class UploadException(Exception): pass
