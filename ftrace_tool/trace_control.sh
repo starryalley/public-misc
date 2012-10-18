@@ -7,7 +7,9 @@ fi
 
 if [ $1 = "help" ]; then
     echo "available operations: "
-    echo "  start: start ftrace (function tracer)"
+    echo "  start [tracer name]: start ftrace with tracer name"
+    echo "  start: start ftrace with nop tracer"
+    echo "  start function: start ftrace with function tracer"
     echo "  stop:  stop  ftrace"
     echo "  clear: clear trace buffer"
     echo "  fetch: fetch trace buffer to current directory"
