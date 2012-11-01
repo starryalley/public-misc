@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 """
 
 This is a tool for uploading Xplova's proprietary XZR activity format 
