@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 
 """
-
+============================================
 CMUS status update program using notify-send
+============================================
 
-example status update as program's parameter list
+Example status update as program's parameter list
     status playing
     file /data/music/Zeb-Jesterized/12-Zeb-Spy From Cairo.mp3
     artist Zeb
@@ -13,6 +14,21 @@ example status update as program's parameter list
     title Spy From Cairo
     date 2000
     duration 322
+
+Usage:
+    Create a shell script at ~/.cmus/status_display_program.sh and 'chmod +x' it:
+
+        #!/bin/sh
+        program1 "$@" &
+
+    (replace program1 with path to this script)
+
+    In CMUS:
+    :set status_display_program=/home/user/.cmus/status_display_program.sh
+
+    Reference:
+    http://cmus.sourceforge.net/wiki/doku.php?id=status_display_programs
+
 """
 
 import sys, os
