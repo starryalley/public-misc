@@ -67,8 +67,8 @@ def download_albums(client, email, albums):
 
 
 def download_file(url, path):
-    print "   Downloading photo:%s" % (basename,)
     basename = url[url.rindex('/') + 1:]
+    print "   Downloading photo:%s" % (basename,)
     urllib.urlretrieve(url, os.path.join(path, basename))
 
 if __name__ == '__main__':
