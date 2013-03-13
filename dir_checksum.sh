@@ -15,8 +15,11 @@
 # 程式提式的訊息基本上只需要
 # 1 match
 # 2 modified
-# 3 disappeared 
+# 3 disappeared
 #
+
+# Dependent commands
+# md5sum, diff, comm, xargs, find, sort, grep, egrep, echo, sed, rm, mv
 
 # GLOBAL CONFIG
 # ==============
@@ -24,8 +27,11 @@
 # checksum filename
 CHECKSUM_NAME=".dir_checksum"
 
+# diff filename
+DIFF_NAME=".dir_checksum_diff"
+
 # number of parallel process (should be core count + 1)
-PARALLEL_COUNT=8
+PARALLEL_COUNT=2
 
 
 # === get core count ===
@@ -36,27 +42,68 @@ function core_count()
 
 # === create checksum ===
 # $1 target dir
-# $2 number of process to run
+# $2 target checksum filename
 function create_checksum()
 {
-    local path=$1  # target dir
+    local path=$1
+    local checksum=$2
+    echo "Checksum file written to $checksum"
 
-    echo "[Run]"
-    find $path -type f -print0 | #find every file under $path
-        #pv --line-mode |
-        xargs -0 -n 1 -P $PARALLEL_COUNT md5sum | # parallel create md5sum
+    echo "Creating checksum..."
+    # the long pipeline
+    find -L $path ! -name $CHECKSUM_NAME ! -name $CHECKSUM_NAME.old \
+         -type f -print0 |                          #find every file under $path (follow symbolic links)
+        #pv --line-mode |                           #investigating...
+        xargs -0 -n 1 -P $PARALLEL_COUNT md5sum |   # parallel create md5sum
         #xargs -0 -n 1 -P $PARALLEL_COUNT sh -c 'md5sum $1' sh | # with another shell command example
 
-        #sed -f '' >  $path/$CHECKSUM_NAME #save to checksume file only
-        tee $path/$CHECKSUM_NAME #save to checksume file and output to screen
-    echo "[End]"
+        sort |                                      #should sort or diff will fail badly
+        sed '' > $checksum                          #save to checksume file only
+        #tee $checksum                              #save to checksume file and output to screen
+    echo "Done"
 
+}
+
+# === compare checksum ===
+# $1 target dir
+# $2 old checksum file
+# $3 new checksum file
+function compare_checksum()
+{
+    local path=$1
+    local old=$2
+    local new=$3
+    echo "comparing $old and $new..."
+    diff --suppress-common-lines --unified=0 $old $new |    #diff
+        egrep -v "\-\-\-|\+\+\+|\@\@" |                     #remove other info
+        sed '' > $path/$DIFF_NAME
+
+    # example output here:
+    #   -0dea76f1d4581b591409bffe8fe6f722  ../tmp/test_enum/main.c
+    #   +330a71bf82c38415860d19490cec2648  ../tmp/test_enum/main.c
+    #   -d41d8cd98f00b204e9800998ecf8427e  ../tmp/test_enum/test1
+    #   +d41d8cd98f00b204e9800998ecf8427e  ../tmp/test_enum/test3
+
+    # grep 2 sets
+    grep ^- $path/$DIFF_NAME | cut -d' ' -f3 | sort > $path/$DIFF_NAME.miss
+    grep ^+ $path/$DIFF_NAME | cut -d' ' -f3 | sort > $path/$DIFF_NAME.new
+
+    echo "=== Report ==="
+    echo "modified:"
+    comm -12 $path/$DIFF_NAME.miss $path/$DIFF_NAME.new | sed '/^$/d'
+    echo "missed:"
+    comm -2 $path/$DIFF_NAME.miss $path/$DIFF_NAME.new | cut -f 1 | sed '/^$/d'
+    echo "added:"
+    comm -2 $path/$DIFF_NAME.new $path/$DIFF_NAME.miss | cut -f 1 | sed '/^$/d'
+
+    # clean up
+    rm $path/$DIFF_NAME*
 }
 
 # === usage ===
 function usage()
 {
-    E_BADARGS=65
+    local E_BADARGS=65
     echo "Usage: $0 [directory]"
     echo "  directory: the directory to check (default: current directory"
     exit $E_BADARGS
@@ -87,16 +134,24 @@ echo "Parallel process: $PARALLEL_COUNT"
 # check if checksum already exist
 checksum_path="$dir/$CHECKSUM_NAME"
 if [ -e $checksum_path ]; then
-    echo "Checksum exists: $checksum_path"
+    echo "Old checksum exists: $checksum_path"
+    mv $checksum_path $checksum_path.old
 fi
 
 # create_checksum
-create_checksum $dir
+create_checksum $dir $checksum_path
 
+# see if we need to compare
+if [ -e $checksum_path.old ]; then
+    compare_checksum $dir $checksum_path.old $checksum_path
+    # rm $checksum_path.old
+fi
+
+# progress example:
 #echo -ne '#####                     (33%)\r'; sleep 1
 #echo -ne '#############             (66%)\r'; sleep 1
 #echo -ne '#######################   (100%)\r'
 #echo -ne '\n'
 
-
 exit
+
