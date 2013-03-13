@@ -1,14 +1,21 @@
 #!/bin/bash
 #
-# Under construction - Not working yet!
+# Directory checksum script
 #
+# It computes md5sum of all files in one directory
+# recursively and saved to a checksum file under it.
+# Second execution on that directory will compare
+# last checksum with current one and report missed/
+# added/modified files.
+#
+# =======================================
 #
 # Author: Mark Kuo (starryalley@gmail.com)
 # Date:   2013.3.13
 #
 
 #
-# Requirements:
+# Original Requirements:
 #
 # 可以把所有的hash data都放在一個文字檔案裡面
 # 在檔案名稱永遠相同的前提之下
@@ -18,17 +25,21 @@
 # 3 disappeared
 #
 
-# Dependent commands
-# md5sum, diff, comm, xargs, find, sort, grep, egrep, echo, sed, rm, mv
+#
+# Dependent commands:
+# md5sum, diff, comm, xargs, find, sort
+# grep, egrep, echo, sed, rm, mv, wc, pv
+#
+# Notes:
+#  only tested under Ubuntu 12.04
+#
+
 
 # GLOBAL CONFIG
 # ==============
 
-# checksum filename
+# checksum filename (old checksum will have same filename with .old suffix)
 CHECKSUM_NAME=".dir_checksum"
-
-# diff filename
-DIFF_NAME=".dir_checksum_diff"
 
 # number of parallel process (should be core count + 1)
 PARALLEL_COUNT=2
@@ -49,17 +60,25 @@ function create_checksum()
     local checksum=$2
     echo "Checksum file written to $checksum"
 
+    echo "Count files..."
+    local count=`find -L $path ! -name $CHECKSUM_NAME ! -name $CHECKSUM_NAME.old \
+         -type f | wc -l`
+    echo "$count files found"
+
     echo "Creating checksum..."
     # the long pipeline
     find -L $path ! -name $CHECKSUM_NAME ! -name $CHECKSUM_NAME.old \
-         -type f -print0 |                          #find every file under $path (follow symbolic links)
-        #pv --line-mode |                           #investigating...
+         -type f -print0 |       #find every file under $path (follow symbolic links)
         xargs -0 -n 1 -P $PARALLEL_COUNT md5sum |   # parallel create md5sum
         #xargs -0 -n 1 -P $PARALLEL_COUNT sh -c 'md5sum $1' sh | # with another shell command example
 
-        sort |                                      #should sort or diff will fail badly
+        pv -cN MD5SUM --line-mode -s $count |       #showing nice progress bar using pv
+
+        sort --parallel=$PARALLEL_COUNT -k 2 |      #should sort or diff will fail badly
+        #pv -cN SORT --line-mode -s $count |        #showing nice progress bar using pv
         sed '' > $checksum                          #save to checksume file only
         #tee $checksum                              #save to checksume file and output to screen
+
     echo "Done"
 
 }
@@ -70,10 +89,14 @@ function create_checksum()
 # $3 new checksum file
 function compare_checksum()
 {
+    # diff filename
+    local DIFF_NAME="${CHECKSUM_NAME}.diff"
+
     local path=$1
     local old=$2
     local new=$3
-    echo "comparing $old and $new..."
+
+    #echo "comparing $old and $new..."
     diff --suppress-common-lines --unified=0 $old $new |    #diff
         egrep -v "\-\-\-|\+\+\+|\@\@" |                     #remove other info
         sed '' > $path/$DIFF_NAME
@@ -84,19 +107,22 @@ function compare_checksum()
     #   -d41d8cd98f00b204e9800998ecf8427e  ../tmp/test_enum/test1
     #   +d41d8cd98f00b204e9800998ecf8427e  ../tmp/test_enum/test3
 
-    # grep 2 sets
+    # grep - and + respectively into 2 sets (miss and new)
     grep ^- $path/$DIFF_NAME | cut -d' ' -f3 | sort > $path/$DIFF_NAME.miss
     grep ^+ $path/$DIFF_NAME | cut -d' ' -f3 | sort > $path/$DIFF_NAME.new
 
     echo "=== Report ==="
-    echo "modified:"
+    echo "Modified:"    # the intersection
     comm -12 $path/$DIFF_NAME.miss $path/$DIFF_NAME.new | sed '/^$/d'
-    echo "missed:"
+    echo "--------------"
+    echo "Missed:"      #in miss but not in new
     comm -2 $path/$DIFF_NAME.miss $path/$DIFF_NAME.new | cut -f 1 | sed '/^$/d'
-    echo "added:"
+    echo "--------------"
+    echo "Added:"       #in new but not in miss
     comm -2 $path/$DIFF_NAME.new $path/$DIFF_NAME.miss | cut -f 1 | sed '/^$/d'
+    echo "--------------"
 
-    # clean up
+    # clean up tmp files
     rm $path/$DIFF_NAME*
 }
 
@@ -134,7 +160,7 @@ echo "Parallel process: $PARALLEL_COUNT"
 # check if checksum already exist
 checksum_path="$dir/$CHECKSUM_NAME"
 if [ -e $checksum_path ]; then
-    echo "Old checksum exists: $checksum_path"
+    echo "Old checksum exists. Renamed: $checksum_path.old"
     mv $checksum_path $checksum_path.old
 fi
 
@@ -144,10 +170,11 @@ create_checksum $dir $checksum_path
 # see if we need to compare
 if [ -e $checksum_path.old ]; then
     compare_checksum $dir $checksum_path.old $checksum_path
-    # rm $checksum_path.old
+    # keep old copy for reference?
+    #rm $checksum_path.old
 fi
 
-# progress example:
+# progress example: (may work only in linux)
 #echo -ne '#####                     (33%)\r'; sleep 1
 #echo -ne '#############             (66%)\r'; sleep 1
 #echo -ne '#######################   (100%)\r'
