@@ -41,7 +41,7 @@
 # checksum filename (old checksum will have same filename with .old suffix)
 CHECKSUM_NAME=".dir_checksum"
 
-# number of parallel process (should be core count + 1)
+# number of parallel process (will be updated to core count + 1 when script runs)
 PARALLEL_COUNT=2
 
 
@@ -51,6 +51,7 @@ function core_count()
     echo `grep -c ^processor /proc/cpuinfo`
 }
 
+
 # === create checksum ===
 # $1 target dir
 # $2 target checksum filename
@@ -58,15 +59,14 @@ function create_checksum()
 {
     local path=$1
     local checksum=$2
-    echo "Checksum file written to $checksum"
 
     echo "Count files..."
     local count=`find -L $path ! -name $CHECKSUM_NAME ! -name $CHECKSUM_NAME.old \
          -type f | wc -l`
     echo "$count files found"
 
-    echo "Creating checksum..."
-    # the long pipeline
+    echo "Computing checksum..."
+    # the long pipeline of 'find | xargs md5sum | pv | sort'
     find -L $path ! -name $CHECKSUM_NAME ! -name $CHECKSUM_NAME.old \
          -type f -print0 |       #find every file under $path (follow symbolic links)
         xargs -0 -n 1 -P $PARALLEL_COUNT md5sum |   # parallel create md5sum
@@ -79,9 +79,9 @@ function create_checksum()
         sed '' > $checksum                          #save to checksume file only
         #tee $checksum                              #save to checksume file and output to screen
 
-    echo "Done"
-
+    echo "Done. Checksum file written to $checksum"
 }
+
 
 # === compare checksum ===
 # $1 target dir
@@ -126,14 +126,16 @@ function compare_checksum()
     rm $path/$DIFF_NAME*
 }
 
+
 # === usage ===
 function usage()
 {
     local E_BADARGS=65
     echo "Usage: $0 [directory]"
-    echo "  directory: the directory to check (default: current directory"
+    echo "  directory: the directory to check (default: current directory)"
     exit $E_BADARGS
 }
+
 
 # === main ===
 
@@ -150,7 +152,6 @@ if [ ! -e $dir ]; then
     exit 1
 fi
 
-# print info before doing things
 echo "Target directory: $dir"
 
 # set parallel count
