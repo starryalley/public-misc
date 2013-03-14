@@ -61,13 +61,13 @@ function create_checksum()
     local checksum=$2
 
     echo "Count files..."
-    local count=`find -L $path ! -name $CHECKSUM_NAME ! -name $CHECKSUM_NAME.old \
+    local count=`find -L "$path" ! -name $CHECKSUM_NAME ! -name $CHECKSUM_NAME.old \
          -type f | wc -l`
     echo "$count files found"
 
     echo "Computing checksum..."
     # the long pipeline of 'find | xargs md5sum | pv | sort'
-    find -L $path ! -name $CHECKSUM_NAME ! -name $CHECKSUM_NAME.old \
+    find -L "$path" ! -name $CHECKSUM_NAME ! -name $CHECKSUM_NAME.old \
          -type f -print0 |       #find every file under $path (follow symbolic links)
         xargs -0 -n 1 -P $PARALLEL_COUNT md5sum |   # parallel create md5sum
         #xargs -0 -n 1 -P $PARALLEL_COUNT sh -c 'md5sum $1' sh | # with another shell command example
@@ -76,8 +76,8 @@ function create_checksum()
 
         sort --parallel=$PARALLEL_COUNT -k 2 |      #should sort or diff will fail badly
         #pv -cN SORT --line-mode -s $count |        #showing nice progress bar using pv
-        sed '' > $checksum                          #save to checksume file only
-        #tee $checksum                              #save to checksume file and output to screen
+        sed '' > "$checksum"                          #save to checksume file only
+        #tee "$checksum"                              #save to checksume file and output to screen
 
     echo "Done. Checksum file written to $checksum"
 }
@@ -97,9 +97,9 @@ function compare_checksum()
     local new=$3
 
     #echo "comparing $old and $new..."
-    diff --suppress-common-lines --unified=0 $old $new |    #diff
-        egrep -v "\-\-\-|\+\+\+|\@\@" |                     #remove other info
-        sed '' > $path/$DIFF_NAME
+    diff --suppress-common-lines --unified=0 "$old" "$new" |  #diff
+        egrep -v "\-\-\-|\+\+\+|\@\@" |                       #remove other info
+        sed '' > "$path/$DIFF_NAME"
 
     # example output here:
     #   -0dea76f1d4581b591409bffe8fe6f722  ../tmp/test_enum/main.c
@@ -108,22 +108,22 @@ function compare_checksum()
     #   +d41d8cd98f00b204e9800998ecf8427e  ../tmp/test_enum/test3
 
     # grep - and + respectively into 2 sets (miss and new)
-    grep ^- $path/$DIFF_NAME | cut -d' ' -f3 | sort > $path/$DIFF_NAME.miss
-    grep ^+ $path/$DIFF_NAME | cut -d' ' -f3 | sort > $path/$DIFF_NAME.new
+    grep ^- "$path/$DIFF_NAME" | cut -d' ' -f3- | sort > "$path/$DIFF_NAME.miss"
+    grep ^+ "$path/$DIFF_NAME" | cut -d' ' -f3- | sort > "$path/$DIFF_NAME.new"
 
     echo "=== Report ==="
     echo "Modified:"    # the intersection
-    comm -12 $path/$DIFF_NAME.miss $path/$DIFF_NAME.new | sed '/^$/d'
+    comm -12 "$path/$DIFF_NAME.miss" "$path/$DIFF_NAME.new" | sed '/^$/d'
     echo "--------------"
     echo "Missed:"      #in miss but not in new
-    comm -2 $path/$DIFF_NAME.miss $path/$DIFF_NAME.new | cut -f 1 | sed '/^$/d'
+    comm -2 "$path/$DIFF_NAME.miss" "$path/$DIFF_NAME.new" | cut -f 1 | sed '/^$/d'
     echo "--------------"
     echo "Added:"       #in new but not in miss
-    comm -2 $path/$DIFF_NAME.new $path/$DIFF_NAME.miss | cut -f 1 | sed '/^$/d'
+    comm -2 "$path/$DIFF_NAME.new" "$path/$DIFF_NAME.miss" | cut -f 1 | sed '/^$/d'
     echo "--------------"
 
     # clean up tmp files
-    rm $path/$DIFF_NAME*
+    rm "$path/$DIFF_NAME"*
 }
 
 
@@ -147,7 +147,7 @@ fi
 
 # default: current working directory
 dir=${1:-`pwd`}
-if [ ! -e $dir ]; then
+if [ ! -e "$dir" ]; then
     echo "$1 doesn't exist or is not a directory. Exiting.."
     exit 1
 fi
@@ -160,17 +160,17 @@ echo "Parallel process: $PARALLEL_COUNT"
 
 # check if checksum already exist
 checksum_path="$dir/$CHECKSUM_NAME"
-if [ -e $checksum_path ]; then
+if [ -e "$checksum_path" ]; then
     echo "Old checksum exists. Renamed: $checksum_path.old"
-    mv $checksum_path $checksum_path.old
+    mv "$checksum_path" "$checksum_path.old"
 fi
 
 # create_checksum
-create_checksum $dir $checksum_path
+create_checksum "$dir" "$checksum_path"
 
 # see if we need to compare
-if [ -e $checksum_path.old ]; then
-    compare_checksum $dir $checksum_path.old $checksum_path
+if [ -e "$checksum_path.old" ]; then
+    compare_checksum "$dir" "$checksum_path.old" "$checksum_path"
     # keep old copy for reference?
     #rm $checksum_path.old
 fi
