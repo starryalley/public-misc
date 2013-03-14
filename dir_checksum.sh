@@ -44,11 +44,20 @@ CHECKSUM_NAME=".dir_checksum"
 # number of parallel process (will be updated to core count + 1 when script runs)
 PARALLEL_COUNT=2
 
+# determine OS
+PLATFORM=`uname -s` #'Darwin' for mac, 'Linux' for linux
 
 # === get core count ===
 function core_count()
 {
-    echo `grep -c ^processor /proc/cpuinfo`
+    if [[ $PLATFORM == 'Linux' ]]; then
+        echo `grep -c ^processor /proc/cpuinfo`
+    elif [[ $PLATFORM == 'Darwin' ]]; then
+        echo `sysctl hw.ncpu`
+    else
+        # not supported
+        echo $PARALLEL_COUNT
+    fi
 }
 
 
@@ -144,6 +153,7 @@ if [ $# -gt 1 ]; then
     echo "Wrong arguments"
     usage
 fi
+
 
 # default: current working directory
 dir=${1:-`pwd`}
