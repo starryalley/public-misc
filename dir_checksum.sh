@@ -41,24 +41,27 @@
 # checksum filename (old checksum will have same filename with .old suffix)
 CHECKSUM_NAME=".dir_checksum"
 
-# number of parallel process (will be updated to core count + 1 when script runs)
+# number of parallel process
 PARALLEL_COUNT=2
 
 # determine OS
 PLATFORM=`uname -s` #'Darwin' for mac, 'Linux' for linux
 
-# === get core count ===
-function core_count()
-{
-    if [[ $PLATFORM == 'Linux' ]]; then
-        echo `grep -c ^processor /proc/cpuinfo`
-    elif [[ $PLATFORM == 'Darwin' ]]; then
-        echo `sysctl hw.ncpu`
-    else
-        # not supported
-        echo $PARALLEL_COUNT
-    fi
-}
+# md5 program
+MD5SUM="md5sum"
+
+# sort program
+SORT="sort"
+
+# platform specific
+if [[ $PLATFORM == 'Linux' ]]; then
+    PARALLEL_COUNT=`grep -c ^processor /proc/cpuinfo`
+    MD5SUM="md5sum"
+    SORT="sort --parallel=$PARALLEL_COUNT"
+elif [[ $PLATFORM == 'Darwin' ]]; then
+    PARALLEL_COUNT=`sysctl hw.ncpu | cut -d: -f2`
+    MD5SUM="md5 -r"
+fi
 
 
 # === create checksum ===
@@ -76,19 +79,19 @@ function create_checksum()
 
     echo "Computing checksum..."
     # the long pipeline of 'find | xargs md5sum | pv | sort'
-    find -L "$path" ! -name $CHECKSUM_NAME ! -name $CHECKSUM_NAME.old \
-         -type f -print0 |       #find every file under $path (follow symbolic links)
-        xargs -0 -n 1 -P $PARALLEL_COUNT md5sum |   # parallel create md5sum
-        #xargs -0 -n 1 -P $PARALLEL_COUNT sh -c 'md5sum $1' sh | # with another shell command example
-
+    find -L "$path" ! -name $CHECKSUM_NAME ! -name $CHECKSUM_NAME.old ! -name .DS_Store \
+         -type f -print0 |                          #find every file under $path (follow symbolic links)
+        xargs -0 -n 1 -P $PARALLEL_COUNT $MD5SUM |  #create md5sum in parallel
         pv -cN MD5SUM --line-mode -s $count |       #showing nice progress bar using pv
-
-        sort --parallel=$PARALLEL_COUNT -k 2 |      #should sort or diff will fail badly
-        #pv -cN SORT --line-mode -s $count |        #showing nice progress bar using pv
-        sed '' > "$checksum"                          #save to checksume file only
-        #tee "$checksum"                              #save to checksume file and output to screen
-
-    echo "Done. Checksum file written to $checksum"
+        $SORT -k 2 |                                #should sort or diff will fail badly
+        sed '' > "$checksum"                        #save to checksume file only
+        #tee "$checksum"                            #save to checksume file and output to screen
+    if [ $? -eq 0 ]; then
+        echo "Done. Checksum file written to $checksum"
+    else
+        echo "Checksum creation failed. Exiting.."
+        exit 1
+    fi
 }
 
 
@@ -107,20 +110,26 @@ function compare_checksum()
 
     #echo "comparing $old and $new..."
     diff --suppress-common-lines --unified=0 "$old" "$new" |  #diff
-        egrep -v "\-\-\-|\+\+\+|\@\@" |                       #remove other info
-        sed '' > "$path/$DIFF_NAME"
+        sed '/^@/d;/^---/d;/^+++/d' > "$path/$DIFF_NAME"      #remove other info
 
     # example output here:
     #   -0dea76f1d4581b591409bffe8fe6f722  ../tmp/test_enum/main.c
     #   +330a71bf82c38415860d19490cec2648  ../tmp/test_enum/main.c
     #   -d41d8cd98f00b204e9800998ecf8427e  ../tmp/test_enum/test1
     #   +d41d8cd98f00b204e9800998ecf8427e  ../tmp/test_enum/test3
+    # example result:
+    #   modified: main.c
+    #   missed: test1
+    #   added: test3
 
+    changes=`cut -d' ' -f3- "$path/$DIFF_NAME" | $SORT | uniq | wc -l`
     # grep - and + respectively into 2 sets (miss and new)
-    grep ^- "$path/$DIFF_NAME" | cut -d' ' -f3- | sort > "$path/$DIFF_NAME.miss"
-    grep ^+ "$path/$DIFF_NAME" | cut -d' ' -f3- | sort > "$path/$DIFF_NAME.new"
+    sed -n '/^-/p' "$path/$DIFF_NAME" | cut -d' ' -f3- | $SORT > "$path/$DIFF_NAME.miss"
+    sed -n '/^+/p' "$path/$DIFF_NAME" | cut -d' ' -f3- | $SORT > "$path/$DIFF_NAME.new"
 
     echo "=== Report ==="
+    echo "File changed: $changes"
+    echo
     echo "Modified:"    # the intersection
     comm -12 "$path/$DIFF_NAME.miss" "$path/$DIFF_NAME.new" | sed '/^$/d'
     echo "--------------"
@@ -162,10 +171,8 @@ if [ ! -e "$dir" ]; then
     exit 1
 fi
 
+echo "Platform: $PLATFORM"
 echo "Target directory: $dir"
-
-# set parallel count
-PARALLEL_COUNT=$(($(core_count) + 1)) #core+1
 echo "Parallel process: $PARALLEL_COUNT"
 
 # check if checksum already exist
