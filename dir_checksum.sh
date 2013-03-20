@@ -55,6 +55,8 @@ MD5SUM="md5sum"
 # sort program
 SORT="sort"
 
+CUT_FIELD=3
+
 # platform specific
 if [[ $PLATFORM == 'Linux' ]]; then
     PARALLEL_COUNT=`grep -c ^processor /proc/cpuinfo`
@@ -63,6 +65,7 @@ if [[ $PLATFORM == 'Linux' ]]; then
 elif [[ $PLATFORM == 'Darwin' ]]; then
     PARALLEL_COUNT=`sysctl hw.ncpu | cut -d: -f2`
     MD5SUM="md5 -r"
+    CUT_FIELD=2
 fi
 
 
@@ -138,10 +141,10 @@ function compare_checksum()
     #   missed: test1
     #   added: test3
 
-    changes=`cut -d' ' -f3- "$path/$DIFF_NAME" | $SORT | uniq | wc -l`
+    changes=`cut -d' ' -f$CUT_FIELD- "$path/$DIFF_NAME" | $SORT | uniq | wc -l`
     # grep - and + respectively into 2 sets (miss and new)
-    sed -n '/^-/p' "$path/$DIFF_NAME" | cut -d' ' -f3- | $SORT > "$path/$DIFF_NAME.miss"
-    sed -n '/^+/p' "$path/$DIFF_NAME" | cut -d' ' -f3- | $SORT > "$path/$DIFF_NAME.new"
+    sed -n '/^-/p' "$path/$DIFF_NAME" | cut -d' ' -f$CUT_FIELD- | $SORT > "$path/$DIFF_NAME.miss"
+    sed -n '/^+/p' "$path/$DIFF_NAME" | cut -d' ' -f$CUT_FIELD- | $SORT > "$path/$DIFF_NAME.new"
 
     echo "=== Report ==="
     echo "File changed: $changes"
