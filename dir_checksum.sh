@@ -11,9 +11,9 @@
 # =======================================
 #
 # Author: Mark Kuo (starryalley@gmail.com)
-# Date:   2013.3.13
+# Date:   2013.3.20
 #
-
+#
 #
 # Original Requirements:
 #
@@ -24,11 +24,13 @@
 # 2 modified
 # 3 disappeared
 #
-
 #
 # Dependent commands:
-# md5sum, diff, comm, xargs, find, sort
-# grep, egrep, echo, sed, rm, mv, wc, pv
+#  md5sum/md5, diff, comm, xargs, find, sort
+#  grep, sed, rm, mv, wc, cut, uniq
+#
+# Optional commands:
+#  pv
 #
 # Notes:
 #  only tested under Ubuntu 12.04
@@ -77,21 +79,30 @@ function create_checksum()
          -type f | wc -l`
     echo "$count files found"
 
+    # check pv existence
+    local PV_CMD="pv -cN MD5SUM --line-mode -s $count"
+    if ! type pv > /dev/null 2>&1; then
+        echo "'pv' not installed. Progress bar disabled"
+        local PV_CMD="cat" #bypassing
+    fi
+
     echo "Computing checksum..."
     # the long pipeline of 'find | xargs md5sum | pv | sort'
     find -L "$path" ! -name $CHECKSUM_NAME ! -name $CHECKSUM_NAME.old ! -name .DS_Store \
          -type f -print0 |                          #find every file under $path (follow symbolic links)
         xargs -0 -n 1 -P $PARALLEL_COUNT $MD5SUM |  #create md5sum in parallel
-        pv -cN MD5SUM --line-mode -s $count |       #showing nice progress bar using pv
+        $PV_CMD |                                   #showing nice progress bar using pv
         $SORT -k 2 |                                #should sort or diff will fail badly
         sed '' > "$checksum"                        #save to checksume file only
         #tee "$checksum"                            #save to checksume file and output to screen
+
     if [ $? -eq 0 ]; then
         echo "Done. Checksum file written to $checksum"
     else
         echo "Checksum creation failed. Exiting.."
         exit 1
     fi
+    echo
 }
 
 
@@ -111,6 +122,11 @@ function compare_checksum()
     #echo "comparing $old and $new..."
     diff --suppress-common-lines --unified=0 "$old" "$new" |  #diff
         sed '/^@/d;/^---/d;/^+++/d' > "$path/$DIFF_NAME"      #remove other info
+
+    if [ $? -ne 0 ]; then
+        echo "Error running diff. Exiting.."
+        exit 1
+    fi
 
     # example output here:
     #   -0dea76f1d4581b591409bffe8fe6f722  ../tmp/test_enum/main.c
@@ -162,7 +178,6 @@ if [ $# -gt 1 ]; then
     echo "Wrong arguments"
     usage
 fi
-
 
 # default: current working directory
 dir=${1:-`pwd`}
