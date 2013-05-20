@@ -28,7 +28,7 @@ elif [ $1 = "stop" ]; then
 elif [ $1 = "clear" ]; then
     adb shell "echo 0 > /d/tracing/trace"
 elif [ $1 = "fetch" ]; then
-    adb pull /d/tracing/trace trace
+    adb pull /d/tracing/trace `date '+ftrace-%Y%m%d-%H%M%S.log'`
 else
     echo "Not recognized: $1"
 fi
