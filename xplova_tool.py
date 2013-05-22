@@ -130,14 +130,14 @@ if __name__ == '__main__':
     # build argument parser
     parser = argparse.ArgumentParser(\
             description = 'Auto uploader script for sport activity sites')
-    group = parser.add_mutually_exclusive_group(required = False)
+    group = parser.add_mutually_exclusive_group(required = True)
     group.add_argument('-a', '--activity', help = 'activity_id to export to gpx file')
     group.add_argument('-i', '--import-file', type = argparse.FileType('r'), \
             help = 'file to upload')
+    group.add_argument('-c', '--check-update', action = 'store_true', help = 'Check E5 update')
     parser.add_argument('-o', '--export-gpx', help = 'exported gpx filename')
     parser.add_argument('-u', '--user', help = 'Login username')
     parser.add_argument('-p', '--passwd', help = 'Login password')
-    parser.add_argument('-c', '--check-update', action = 'store_true', help = 'Check E5 update')
     parser.add_argument('-v', '--version', action='version', \
             version='%(prog)s 1.0')
     args = parser.parse_args()
