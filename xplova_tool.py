@@ -44,6 +44,7 @@ class XplovaUtility:
     auth_url = 'http://tour.xplova.com/userAccount/login.php'
     upload_url = 'http://tour.xplova.com/inc/uploadActivity.php'
     export_url = 'http://tour.xplova.com/inc/exportActivity.php?activity_id=%s&format=gpx'
+    e5_version_url = 'http://tour.xplova.com/inc/getLastestVersion.php?device=XplovaE5'
 
 
     def authenticate(self, user, passwd):
@@ -92,7 +93,7 @@ class XplovaUtility:
             return activity_id
         else:
             raise UploadException("Cannot determine activity_id! Full response: \n%s" % ret)
-        
+
 
     def export(self, act_id, export_filename):
         req = urllib2.Request(self.export_url % act_id)
@@ -106,6 +107,22 @@ class XplovaUtility:
         except Exception as e:
             raise ExportException("Exporting error: %s" % e)
 
+
+    def check_version(self):
+        req = urllib2.Request(self.e5_version_url)
+        req.add_header('Referer', 'http://tour.xplova.com/downloadSupport/?noheader=1')
+        req.add_header('User-Agent', USER_AGENT)
+
+        try:
+            version = json.loads(urllib2.urlopen(req).read())
+            if version['ret'] == 'RET_OK':
+                print "Latest version: %s, Download link: %s" % \
+                        (version['AP']['Version'], version['AP']['DownloadLink'])
+            else:
+                print "Error load information from %s" % self.e5_version_url
+        except:
+            print "Error checking version: %s" % e
+
     pass
 
 
@@ -113,13 +130,14 @@ if __name__ == '__main__':
     # build argument parser
     parser = argparse.ArgumentParser(\
             description = 'Auto uploader script for sport activity sites')
-    group = parser.add_mutually_exclusive_group(required = True)
+    group = parser.add_mutually_exclusive_group(required = False)
     group.add_argument('-a', '--activity', help = 'activity_id to export to gpx file')
     group.add_argument('-i', '--import-file', type = argparse.FileType('r'), \
             help = 'file to upload')
     parser.add_argument('-o', '--export-gpx', help = 'exported gpx filename')
     parser.add_argument('-u', '--user', help = 'Login username')
     parser.add_argument('-p', '--passwd', help = 'Login password')
+    parser.add_argument('-c', '--check-update', action = 'store_true', help = 'Check E5 update')
     parser.add_argument('-v', '--version', action='version', \
             version='%(prog)s 1.0')
     args = parser.parse_args()
@@ -128,14 +146,20 @@ if __name__ == '__main__':
     if args.activity and args.export_gpx is None:
         parser.error("-a and -o should be specified together")
 
+    xplova = XplovaUtility()
+
+    # check version
+    if args.check_update:
+        print "Checking software update. Ignore other options..."
+        xplova.check_version()
+        sys.exit(0)
+
     # prompt user/passwd
     if args.user is None:
         args.user = raw_input("Username: ")
     if args.passwd is None:
         args.passwd = getpass.getpass("Password: ")
 
-    # do the job
-    xplova = XplovaUtility()
     try:
         xplova.authenticate(args.user, args.passwd)
         if args.activity is None:
